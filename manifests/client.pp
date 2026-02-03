@@ -16,6 +16,10 @@
 #   Default: /var/lib/burp-${name}
 #   Directory where all client related files are saved to (ex. ssl certificate).
 #
+# [*ca_burp_ca*]
+#   Default: /usr/sbin/vshn_burp_ca
+#   CA script location.
+#
 # [*clientconfig_tag*]
 #   Default: $server
 #   Puppet tag which gets assigned to `burp::clientconfig` resources for
@@ -52,6 +56,10 @@
 #   Default: 60
 #   When running a timed backup (`t` mode), sleep for a random number of seconds (between 0 and the  number  given)
 #   before contacting the server.
+#
+# [*ecdsa_curve*]
+#   Default: 'prime256v1'
+#   ECDSA curve name for certificate key generation.
 #
 # [*user*]
 #   Default: undef
@@ -100,7 +108,7 @@
 #
 # === Copyright
 #
-# Copyright 2015 Tobias Brunner, VSHN AG
+# Copyright 2026 Tobias Brunner, VSHN AG
 #
 define burp::client (
   Enum['present','absent']  $ensure = present,
@@ -109,10 +117,12 @@ define burp::client (
   Optional[String]          $clientconfig_tag = undef,
   Hash                      $configuration = {},
   Hash                      $server_configuration = {},
+  Stdlib::Absolutepath      $ca_burp_ca = '/usr/sbin/vshn_burp_ca',
   Variant[String,Array]     $cron_hour = '*',
   Variant[String,Array]     $cron_minute = '*/15',
   Enum['b', 't']            $cron_mode = 't',
   Integer                   $cron_randomise = 850,
+  String                    $ecdsa_curve = 'prime256v1',
   Optional[String]          $user = undef,
   Optional[String]          $group = undef,
   Stdlib::Filemode          $config_file_mode = '0600',
@@ -146,7 +156,7 @@ define burp::client (
   # parameters coming from a default BURP installation (most of them)
   $_ca_dir = "${working_dir}/ssl"
   $_default_configuration = {
-    'ca_burp_ca'            => '/usr/sbin/burp_ca',
+    'ca_burp_ca'            => $ca_burp_ca,
     'ca_csr_dir'            => $_ca_dir,
     'cname'                 => $facts['networking']['fqdn'],
     'cross_all_filesystems' => 0,
@@ -224,6 +234,15 @@ define burp::client (
       minute  => $_cron_minute,
       hour    => $_cron_hour,
     }
+  }
+
+  ## Deploy custom burp_ca
+  file { $ca_burp_ca:
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0755',
+    content => template('burp/burp_ca.erb'),
   }
 
   ## Exported resource for clientconfig

@@ -4,6 +4,10 @@
 #
 # === Parameters
 #
+# [*ca_burp_ca*]
+#   Default: /usr/sbin/vshn_burp_ca
+#   CA script location.
+#
 # [*ca_config_file*]
 #   Default: /etc/burp/CA.cnf
 #   CA configuration file.
@@ -39,6 +43,14 @@
 #   values. A big bunch of default values are already prepared (see code below).
 #   Values defined in this hash will get merged and will override the default
 #   parameters!
+#
+# [*ecdsa_curve*]
+#   Default: 'prime256v1'
+#   ECDSA curve name for certificate key generation.
+#
+# [*default_days*]
+#   Default: 7300
+#   Recommended certificate lifespan.
 #
 # [*group*]
 #   Default: burp
@@ -127,6 +139,7 @@
 # Copyright 2015 Tobias Brunner, VSHN AG
 #
 class burp::server (
+  Stdlib::Absolutepath    $ca_burp_ca = '/usr/sbin/vshn_burp_ca',
   Stdlib::Absolutepath    $ca_config_file = '/etc/burp/CA.cnf',
   Stdlib::Absolutepath    $ca_dir = '/var/lib/burp/CA',
   Boolean                 $ca_enabled = true,
@@ -135,6 +148,8 @@ class burp::server (
   Hash                    $clientconfigs = {},
   Stdlib::Absolutepath    $config_file = '/etc/burp/burp-server.conf',
   Hash                    $configuration = {},
+  String                  $ecdsa_curve = 'prime256v1',
+  Integer                 $default_days = 7300,
   String                  $user = 'burp',
   String                  $group = 'burp',
   Stdlib::Filemode        $config_file_mode = '0600',
@@ -173,7 +188,7 @@ class burp::server (
   ## Default configuration parameters for BURP server
   # parameters coming from a default BURP installation (most of them)
   $_default_configuration = {
-    'ca_burp_ca'                  => '/usr/sbin/burp_ca',
+    'ca_burp_ca'                  => $ca_burp_ca,
     'ca_conf'                     => $ca_config_file,
     'ca_name'                     => 'burpCA',
     'ca_server_name'              => $facts['networking']['fqdn'],
@@ -244,6 +259,15 @@ class burp::server (
       require => Class['burp::config'],
       replace => $config_file_replace,
     }
+  }
+
+  ## Deploy custom burp_ca
+  file { $ca_burp_ca:
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0755',
+    content => template('burp/burp_ca.erb'),
   }
 
   ## Prepare working directories
